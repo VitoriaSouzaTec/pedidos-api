@@ -1,6 +1,6 @@
 # pedidos-api
 
-[![CI](https://github.com/<usuario>/pedidos-api/actions/workflows/ci.yml/badge.svg)](https://github.com/<usuario>/pedidos-api/actions/workflows/ci.yml)
+[![CI](https://github.com/VitoriaSouzaTec/pedidos-api/actions/workflows/ci.yml/badge.svg)](https://github.com/VitoriaSouzaTec/pedidos-api/actions/workflows/ci.yml)
 
 API REST de **Pedidos**: cria, consulta, paga e cancela pedidos. Node + TypeScript + Express 5 + Postgres 16.
 
