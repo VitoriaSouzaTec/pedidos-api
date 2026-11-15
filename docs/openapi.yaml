@@ -1,0 +1,316 @@
+openapi: 3.0.3
+info:
+  title: Pedidos API
+  version: 1.0.0
+  description: |
+    API de domínio único (Pedidos). Permite criar, consultar, pagar e cancelar pedidos.
+    Valores monetários são sempre inteiros em centavos.
+    Transições de status válidas: PENDING → PAID e PENDING → CANCELLED.
+  contact:
+    name: Vitória
+    email: vitoriasouzatec@gmail.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://localhost:3000
+    description: Ambiente local (docker compose)
+tags:
+  - name: Pedidos
+    description: Ciclo de vida do pedido
+  - name: Operação
+    description: Saúde e métricas do serviço
+paths:
+  /orders:
+    post:
+      tags: [Pedidos]
+      operationId: createOrder
+      summary: Cria um pedido
+      description: Cria um pedido em `PENDING` e calcula `totalCents` como a soma de `quantity * unitPriceCents`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+            example:
+              customerId: cli-1
+              items:
+                - productId: p1
+                  quantity: 2
+                  unitPriceCents: 1500
+      responses:
+        '201':
+          description: Pedido criado
+          headers:
+            Location:
+              description: URL do pedido criado
+              schema:
+                type: string
+                example: /orders/3f1c2b9e-8a7d-4c6b-9e5f-1a2b3c4d5e6f
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+              example:
+                id: 3f1c2b9e-8a7d-4c6b-9e5f-1a2b3c4d5e6f
+                customerId: cli-1
+                items:
+                  - productId: p1
+                    quantity: 2
+                    unitPriceCents: 1500
+                status: PENDING
+                totalCents: 3000
+                createdAt: '2026-11-15T12:00:00.000Z'
+                updatedAt: '2026-11-15T12:00:00.000Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{id}:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [Pedidos]
+      operationId: getOrder
+      summary: Consulta um pedido
+      description: Retorna o pedido pelo id.
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderOk'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{id}/pay:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    post:
+      tags: [Pedidos]
+      operationId: payOrder
+      summary: Paga um pedido
+      description: Muda o status de `PENDING` para `PAID`.
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderOk'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /orders/{id}/cancel:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    post:
+      tags: [Pedidos]
+      operationId: cancelOrder
+      summary: Cancela um pedido
+      description: Muda o status de `PENDING` para `CANCELLED`.
+      responses:
+        '200':
+          $ref: '#/components/responses/OrderOk'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /health:
+    get:
+      tags: [Operação]
+      operationId: getHealth
+      summary: Verifica a saúde do serviço
+      description: Retorna `ok` quando o processo está de pé.
+      responses:
+        '200':
+          description: Serviço saudável
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+              example:
+                status: ok
+  /metrics:
+    get:
+      tags: [Operação]
+      operationId: getMetrics
+      summary: Métricas Prometheus
+      description: Expõe o histograma `http_request_duration_seconds` no formato texto do Prometheus.
+      responses:
+        '200':
+          description: Métricas no formato de exposição do Prometheus
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP http_request_duration_seconds Duração das requisições HTTP em segundos
+                # TYPE http_request_duration_seconds histogram
+                http_request_duration_seconds_bucket{le="0.01",method="POST",route="/orders",status="201"} 12
+components:
+  parameters:
+    OrderId:
+      name: id
+      in: path
+      required: true
+      description: Id do pedido (UUID)
+      schema:
+        type: string
+        format: uuid
+      example: 3f1c2b9e-8a7d-4c6b-9e5f-1a2b3c4d5e6f
+  schemas:
+    OrderItem:
+      type: object
+      required: [productId, quantity, unitPriceCents]
+      properties:
+        productId:
+          type: string
+          minLength: 1
+          example: p1
+        quantity:
+          type: integer
+          minimum: 1
+          example: 2
+        unitPriceCents:
+          type: integer
+          minimum: 0
+          description: Preço unitário em centavos
+          example: 1500
+    CreateOrderRequest:
+      type: object
+      required: [customerId, items]
+      properties:
+        customerId:
+          type: string
+          minLength: 1
+          example: cli-1
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/OrderItem'
+    Order:
+      type: object
+      required: [id, customerId, items, status, totalCents, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+        status:
+          type: string
+          enum: [PENDING, PAID, CANCELLED]
+        totalCents:
+          type: integer
+          minimum: 0
+          description: Soma de quantity * unitPriceCents, em centavos
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - VALIDATION_ERROR
+            - INVALID_CUSTOMER
+            - EMPTY_ORDER
+            - INVALID_QUANTITY
+            - INVALID_PRICE
+            - ORDER_NOT_FOUND
+            - INVALID_TRANSITION
+            - NOT_FOUND
+            - INTERNAL_ERROR
+        message:
+          type: string
+        details:
+          type: array
+          description: Presente apenas em VALIDATION_ERROR
+          items:
+            type: object
+            properties:
+              path:
+                type: string
+              message:
+                type: string
+  responses:
+    OrderOk:
+      description: Pedido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Order'
+          example:
+            id: 3f1c2b9e-8a7d-4c6b-9e5f-1a2b3c4d5e6f
+            customerId: cli-1
+            items:
+              - productId: p1
+                quantity: 2
+                unitPriceCents: 1500
+            status: PAID
+            totalCents: 3000
+            createdAt: '2026-11-15T12:00:00.000Z'
+            updatedAt: '2026-11-15T12:05:00.000Z'
+    BadRequest:
+      description: Requisição inválida (schema ou regra de domínio)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            validacao:
+              summary: Corpo fora do schema
+              value:
+                code: VALIDATION_ERROR
+                message: requisição inválida
+                details:
+                  - path: customerId
+                    message: Invalid input
+            quantidade:
+              summary: Quantidade inválida
+              value:
+                code: INVALID_QUANTITY
+                message: quantity deve ser um inteiro maior que zero
+    NotFound:
+      description: Pedido não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: ORDER_NOT_FOUND
+            message: pedido não encontrado
+    Conflict:
+      description: Transição de status inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INVALID_TRANSITION
+            message: não é possível mudar o status de PAID para CANCELLED
+    InternalError:
+      description: Erro inesperado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INTERNAL_ERROR
+            message: erro interno do servidor
