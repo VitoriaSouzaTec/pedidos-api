@@ -4,7 +4,7 @@
 
 API REST de **Pedidos**: cria, consulta, paga e cancela pedidos. Node + TypeScript + Express 5 + Postgres 16.
 
-- **Nível escolhido:** domínio único — **Pedidos**. Um fluxo principal (`POST /orders`), sem decomposição em módulos ou microsserviços.
+- **Nível escolhido:**  projeto B. domínio único — **Pedidos**. Um fluxo principal (`POST /orders`), sem decomposição em módulos ou microsserviços.
 - **Pattern:** Repository (ver [ADR 0001](docs/adr/0001-decisao.md)).
 - **Dinheiro sempre em centavos** (inteiros).
 
